@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Pengurusan Kokurikulum (SKAUK)",
+  "description": "Aplikasi dashboard untuk penyempenan data dan analisis pendaftaran serta kehadiran murid untuk aktiviti kokurikulum di sekolah.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

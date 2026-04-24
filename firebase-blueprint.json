@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Records attendance for a specific unit on a specific date",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "description": "The date of the attendance, format YYYY-MM-DD"
+        },
+        "unit": {
+          "type": "string",
+          "description": "The name of the unit"
+        },
+        "presentStudents": {
+          "type": "array",
+          "description": "List of student IDs who are present. Max 500.",
+          "items": { "type": "string" }
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "UID of the user who last updated the record"
+        },
+        "updatedAt": {
+          "type": "timestamp"
+        }
+      },
+      "required": ["date", "unit", "presentStudents", "updatedBy", "updatedAt"]
+    },
+    "StudentRecord": {
+      "title": "StudentRecord",
+      "description": "Stores student profile and extracurricular unit information.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "mykid": { "type": "string" },
+        "aliran": { "type": "string" },
+        "kelas": { "type": "string" },
+        "gender": { "type": "string", "enum": ["L", "P"] },
+        "units": {
+          "type": "object",
+          "properties": {
+            "beruniform": { "type": "string" },
+            "kelab": { "type": "string" },
+            "sukan": { "type": "string" },
+            "rumah": { "type": "string" }
+          },
+          "required": ["beruniform", "kelab", "sukan", "rumah"]
+        }
+      },
+      "required": ["id", "name", "mykid", "aliran", "kelas", "gender", "units"]
+    }
+  },
+  "firestore": {
+    "/unit_attendances/{attendanceId}": {
+      "schema": {
+        "$ref": "#/entities/AttendanceRecord"
+      },
+      "description": "Stores attendance records for units per date."
+    },
+    "/students/{studentId}": {
+      "schema": {
+        "$ref": "#/entities/StudentRecord"
+      },
+      "description": "Stores all registered students."
+    }
+  }
+}

@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      // Allow alphanumeric, underscores, hyphens, spaces, and ampersands
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-& ]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidAttendanceRecord(data) {
+      return data.keys().hasAll(['date', 'unit', 'presentStudents', 'updatedBy', 'updatedAt']) 
+        && data.keys().size() == 5
+        && data.date is string && data.date.size() <= 20
+        && data.unit is string && data.unit.size() <= 100
+        && data.presentStudents is list && data.presentStudents.size() <= 500
+        && (data.presentStudents.size() == 0 || data.presentStudents[0] is string)
+        && data.updatedBy is string
+        && data.updatedAt == request.time;
+    }
+
+    function isValidStudentRecord(data) {
+      return data.keys().hasAll(['id', 'name', 'mykid', 'aliran', 'kelas', 'gender', 'units'])
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 150
+        && data.mykid is string && data.mykid.size() <= 20
+        && data.aliran is string && data.aliran.size() <= 50
+        && data.kelas is string && data.kelas.size() <= 60
+        && data.gender in ['L', 'P']
+        && data.units is map
+        && data.units.keys().hasAll(['beruniform', 'kelab', 'sukan', 'rumah'])
+        && data.units.beruniform is string && data.units.beruniform.size() <= 100
+        && data.units.kelab is string && data.units.kelab.size() <= 100
+        && data.units.sukan is string && data.units.sukan.size() <= 100
+        && data.units.rumah is string && data.units.rumah.size() <= 100;
+    }
+
+    match /students/{studentId} {
+      allow read: if true;
+      allow create: if isValidId(studentId) && isValidStudentRecord(incoming());
+      allow update: if isValidId(studentId) && isValidStudentRecord(incoming());
+      allow delete: if true; // Always allow delete to help clear broken data
+    }
+
+    match /unit_attendances/{attendanceId} {
+      allow read: if true; // Public mode read access
+      allow create: if isValidId(attendanceId) 
+        && isValidAttendanceRecord(incoming());
+
+      allow update: if isValidId(attendanceId)
+        && isValidAttendanceRecord(incoming())
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['presentStudents', 'updatedBy', 'updatedAt'])
+          && incoming().date == existing().date
+          && incoming().unit == existing().unit
+        );
+
+      allow delete: if true; // Always allow delete to help clear broken data
+    }
+  }
+}
