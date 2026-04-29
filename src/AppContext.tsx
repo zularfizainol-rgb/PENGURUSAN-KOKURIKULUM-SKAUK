@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { MOCK_STUDENTS, MOCK_ATTENDANCE, Student } from './data';
+import { MOCK_STUDENTS, MOCK_ATTENDANCE, Student, UNIT_OPTIONS } from './data';
 import { db } from './firebase';
 import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, serverTimestamp, getDocFromServer, writeBatch, getDocs, limit, query } from 'firebase/firestore';
 
@@ -18,9 +18,39 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const normalizeUnit = (u?: string) => {
+  if (!u) return '';
+  const t = u.trim();
+  if (t === '-' || t.toLowerCase() === 'tiada' || t === '') return '';
+  return t.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.substr(1).toLowerCase());
+};
+
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Record<string, Record<string, Record<string, boolean>>>>({});
+
+  useEffect(() => {
+    // Cleanup incorrect 2026-04-08 attendance for non-sukan units based on actual student data
+    if (students.length > 0 && attendance['2026-04-08']) {
+      const unitsToRemove = new Set([
+        ...students.map(s => normalizeUnit(s.units.beruniform)),
+        ...students.map(s => normalizeUnit(s.units.kelab)),
+        ...students.map(s => normalizeUnit(s.units.rumah))
+      ].filter(Boolean));
+      
+      const sukanUnits = new Set(students.map(s => normalizeUnit(s.units.sukan)).filter(Boolean));
+
+      Object.keys(attendance['2026-04-08']).forEach(unit => {
+        // If it's identified as uniform/kelab/rumah AND not simultaneously a sukan unit
+        if (unitsToRemove.has(unit) && !sukanUnits.has(unit)) {
+          const safeUnit = unit.replace(/[^a-zA-Z0-9_-]/g, '');
+          const docId = `2026-04-08_${safeUnit}`;
+          console.log("Dynamically removing 2026-04-08 for unit:", unit);
+          deleteDoc(doc(db, "unit_attendances", docId)).catch(() => {});
+        }
+      });
+    }
+  }, [students, attendance]);
 
   // Check connection on boot to catch offline issues gracefully
   useEffect(() => {

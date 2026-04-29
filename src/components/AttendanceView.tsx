@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ClipboardCheck, Calendar, Filter, Users, CheckCircle2, XCircle } from 'lucide-react';
+import { ClipboardCheck, Calendar, Filter, Users, CheckCircle2, XCircle, Search } from 'lucide-react';
 import { useAppContext } from '../AppContext';
 import { UNIT_OPTIONS, KategoriUnit } from '../data';
 import { cn } from '../data';
@@ -21,6 +21,7 @@ export function AttendanceView() {
   const [selectedKategori, setSelectedKategori] = useState<KategoriUnit | 'Semua'>('Semua');
   const [filterAliran, setFilterAliran] = useState('Semua');
   const [filterKelas, setFilterKelas] = useState('Semua');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const aliranOptions = useMemo(() => {
     const list = Array.from(new Set(students.map(s => normalizeUnit(s.aliran)))).filter(Boolean);
@@ -90,6 +91,10 @@ export function AttendanceView() {
     if (filterKelas !== 'Semua') {
       list = list.filter(s => normalizeUnit(s.kelas) === filterKelas);
     }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(s => s.name.toLowerCase().includes(q) || s.mykid.includes(q));
+    }
     // Sort by aliran, kelas then name
     return list.sort((a, b) => {
       const aliranA = normalizeUnit(a.aliran);
@@ -100,7 +105,7 @@ export function AttendanceView() {
       if (aKelas !== bKelas) return aKelas.localeCompare(bKelas);
       return a.name.localeCompare(b.name);
     });
-  }, [students, selectedKategori, selectedUnit, filterAliran, filterKelas]);
+  }, [students, selectedKategori, selectedUnit, filterAliran, filterKelas, searchQuery]);
 
   // If viewing 'Semua' units, we need a helper to check if they are present natively
   const isStudentPresent = (student: typeof students[0]) => {
@@ -217,19 +222,31 @@ export function AttendanceView() {
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
         <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
           <h3 className="text-sm font-black uppercase tracking-widest text-slate-600">Senarai Nama Ahli</h3>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => handleMarkAll(true)}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black uppercase shadow-sm hover:bg-emerald-700 transition-colors"
-            >
-              Tanda Semua Hadir
-            </button>
-            <button 
-              onClick={() => handleMarkAll(false)}
-              className="px-4 py-2 bg-slate-200 text-slate-600 rounded-lg text-xs font-black uppercase hover:bg-slate-300 transition-colors"
-            >
-              Kosongkan Tandaan
-            </button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-2 md:mt-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Cari nama / no KP..."
+                className="w-full sm:w-48 pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => handleMarkAll(true)}
+                className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black uppercase shadow-sm hover:bg-emerald-700 transition-colors"
+              >
+                Tanda Hadir
+              </button>
+              <button 
+                onClick={() => handleMarkAll(false)}
+                className="flex-1 sm:flex-none px-4 py-2 bg-slate-200 text-slate-600 rounded-lg text-xs font-black uppercase hover:bg-slate-300 transition-colors"
+              >
+                Kosongkan
+              </button>
+            </div>
           </div>
         </div>
 

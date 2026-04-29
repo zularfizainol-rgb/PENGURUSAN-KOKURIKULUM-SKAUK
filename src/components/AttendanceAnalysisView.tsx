@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Filter, BarChart3, TrendingUp, Users, Download } from 'lucide-react';
+import { Filter, BarChart3, TrendingUp, Users, Download, Search } from 'lucide-react';
 import { useAppContext } from '../AppContext';
 import { UNIT_OPTIONS, KategoriUnit } from '../data';
 import { cn } from '../data';
@@ -19,6 +19,7 @@ export function AttendanceAnalysisView() {
   const [selectedKategori, setSelectedKategori] = useState<KategoriUnit | 'Semua'>('Semua');
   const [filterAliran, setFilterAliran] = useState('Semua');
   const [filterDate, setFilterDate] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Dynamically compute valid units based on what's actually in students data
   const availableUnits = useMemo(() => {
@@ -56,8 +57,32 @@ export function AttendanceAnalysisView() {
     return list.sort((a,b) => a.localeCompare(b));
   }, [students]);
 
-  // Get all unique dates from the attendance records
-  const allDates = useMemo(() => Object.keys(attendance).sort(), [attendance]);
+  // Get all unique dates from the attendance records restricted to current category/unit selection
+  const allDates = useMemo(() => {
+    const dates = new Set<string>();
+    Object.entries(attendance).forEach(([date, unitsRecord]) => {
+       if (selectedUnit !== 'Semua') {
+         if (unitsRecord[selectedUnit]) dates.add(date);
+       } else if (selectedKategori !== 'Semua') {
+         // Category is selected, check if any unit in that category has a record
+         const hasRecord = availableUnits.some(u => unitsRecord[u]);
+         if (hasRecord) dates.add(date);
+       } else {
+         // All categories are selected, just make sure there's at least one valid unit record
+         const unitKeys = Object.keys(unitsRecord);
+         const hasValidRecord = unitKeys.some(k => k && k.trim() !== "");
+         if (hasValidRecord) dates.add(date);
+       }
+    });
+    return Array.from(dates).sort();
+  }, [attendance, selectedKategori, selectedUnit, availableUnits]);
+
+  // If filterDate is selected but it's no longer in the valid dates for the selected category/unit, reset it
+  useEffect(() => {
+    if (filterDate && filterDate !== 'Semua' && !allDates.includes(filterDate)) {
+       setFilterDate('');
+    }
+  }, [allDates, filterDate]);
 
   const getStudentTargetUnits = (s: typeof students[0]) => {
     if (selectedKategori !== 'Semua') {
@@ -110,18 +135,27 @@ export function AttendanceAnalysisView() {
 
         tUnits.forEach(u => {
            const dateRecord = attendance[date]?.[u];
-           if (dateRecord && dateRecord[student.id] !== undefined) {
+           // If dateRecord exists, it means attendance was taken for this unit on this date
+           if (dateRecord) {
              meetsAnyDateUnit = true;
+             // Check if student was present
              if (dateRecord[student.id]) {
                 presentForAnyDateUnit = true;
              }
            }
         });
 
-        if (meetsAnyDateUnit) {
+        if (filterDate && filterDate !== 'Semua') {
           totalMeetings++;
           if (presentForAnyDateUnit) {
             presentCount++;
+          }
+        } else {
+          if (meetsAnyDateUnit) {
+            totalMeetings++;
+            if (presentForAnyDateUnit) {
+              presentCount++;
+            }
           }
         }
       });
@@ -134,7 +168,7 @@ export function AttendanceAnalysisView() {
         rate
       };
     });
-  }, [currentUnitStudents, attendance, allDates, selectedUnit]);
+  }, [currentUnitStudents, attendance, allDates, selectedUnit, filterDate]);
 
   // Overall statistics for the selected unit
   const overallStats = useMemo(() => {
@@ -177,12 +211,24 @@ export function AttendanceAnalysisView() {
       doc.text('Analisis Mengikut Aliran & Jantina', 14, currentY);
       autoTable(doc, {
         startY: currentY + 5,
-        head: [['Aliran', 'Lelaki (Hadir/Jum)', 'Perempuan (Hadir/Jum)', 'Keseluruhan (%)']],
+        head: [['Aliran', 'Lelaki', 'Perempuan', 'Keseluruhan']],
         body: aliranGenderStats.map(stat => [
           stat.aliran,
-          `${stat.lelaki.present}/${stat.lelaki.expected} (${stat.lelaki.expected ? Math.round((stat.lelaki.present / stat.lelaki.expected) * 100) : 0}%)`,
-          `${stat.perempuan.present}/${stat.perempuan.expected} (${stat.perempuan.expected ? Math.round((stat.perempuan.present / stat.perempuan.expected) * 100) : 0}%)`,
-          `${stat.total.expected ? Math.round((stat.total.present / stat.total.expected) * 100) : 0}%`
+          selectedUnit !== 'Semua' 
+            ? `${stat.lelaki.present} Hadir (${stat.lelaki.count} Murid)`
+            : selectedKategori === 'Semua'
+            ? `${stat.lelaki.count} Murid`
+            : `${stat.lelaki.present}/${stat.lelaki.expected} (${stat.lelaki.expected ? Math.round((stat.lelaki.present / stat.lelaki.expected) * 100) : 0}%)`,
+          selectedUnit !== 'Semua'
+            ? `${stat.perempuan.present} Hadir (${stat.perempuan.count} Murid)`
+            : selectedKategori === 'Semua'
+            ? `${stat.perempuan.count} Murid`
+            : `${stat.perempuan.present}/${stat.perempuan.expected} (${stat.perempuan.expected ? Math.round((stat.perempuan.present / stat.perempuan.expected) * 100) : 0}%)`,
+          selectedUnit !== 'Semua'
+            ? `${stat.total.present} Hadir`
+            : selectedKategori === 'Semua'
+            ? `${stat.total.count} Murid`
+            : `${stat.total.expected ? Math.round((stat.total.present / stat.total.expected) * 100) : 0}%`
         ]),
         theme: 'striped',
         headStyles: { fillColor: [41, 128, 185] },
@@ -258,6 +304,12 @@ export function AttendanceAnalysisView() {
 
     return Object.values(stats).sort((a, b) => a.aliran.localeCompare(b.aliran));
   }, [studentStats]);
+
+  const filteredStudentStats = useMemo(() => {
+    if (!searchQuery) return studentStats;
+    const q = searchQuery.toLowerCase();
+    return studentStats.filter(s => s.name.toLowerCase().includes(q) || s.mykid.includes(q));
+  }, [studentStats, searchQuery]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -402,20 +454,62 @@ export function AttendanceAnalysisView() {
                       <td className="px-6 py-4 font-bold text-slate-800">{stat.aliran}</td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex flex-col items-center">
-                          <span className="text-sm font-black text-blue-600">{rateL}% ({stat.lelaki.present}/{stat.lelaki.expected})</span>
-                          <span className="text-xs font-bold text-slate-400">{stat.lelaki.count} Murid</span>
+                          {selectedUnit !== 'Semua' ? (
+                            <>
+                              <span className="text-sm font-black text-blue-600">{stat.lelaki.present} Hadir</span>
+                              <span className="text-xs font-bold text-slate-400">daripada {stat.lelaki.count} Murid</span>
+                            </>
+                          ) : selectedKategori === 'Semua' ? (
+                            <>
+                              <span className="text-sm font-black text-blue-600">{stat.lelaki.count}</span>
+                              <span className="text-xs font-bold text-slate-400">Murid Lelaki</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-sm font-black text-blue-600">{rateL}% ({stat.lelaki.present}/{stat.lelaki.expected})</span>
+                              <span className="text-xs font-bold text-slate-400">{stat.lelaki.count} Murid</span>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex flex-col items-center">
-                          <span className="text-sm font-black text-rose-600">{rateP}% ({stat.perempuan.present}/{stat.perempuan.expected})</span>
-                          <span className="text-xs font-bold text-slate-400">{stat.perempuan.count} Murid</span>
+                          {selectedUnit !== 'Semua' ? (
+                            <>
+                              <span className="text-sm font-black text-rose-600">{stat.perempuan.present} Hadir</span>
+                              <span className="text-xs font-bold text-slate-400">daripada {stat.perempuan.count} Murid</span>
+                            </>
+                          ) : selectedKategori === 'Semua' ? (
+                            <>
+                              <span className="text-sm font-black text-rose-600">{stat.perempuan.count}</span>
+                              <span className="text-xs font-bold text-slate-400">Murid Perempuan</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-sm font-black text-rose-600">{rateP}% ({stat.perempuan.present}/{stat.perempuan.expected})</span>
+                              <span className="text-xs font-bold text-slate-400">{stat.perempuan.count} Murid</span>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex flex-col items-center">
-                          <span className="text-sm font-black text-slate-800">{rateTotal}%</span>
-                          <span className="text-xs font-bold text-slate-400">{stat.total.count} Murid Keseluruhan</span>
+                           {selectedUnit !== 'Semua' ? (
+                             <>
+                              <span className="text-sm font-black text-slate-800">{stat.total.present} Hadir</span>
+                              <span className="text-xs font-bold text-slate-400">Keseluruhan ({stat.total.count})</span>
+                             </>
+                           ) : selectedKategori === 'Semua' ? (
+                             <>
+                              <span className="text-sm font-black text-slate-800">{stat.total.count}</span>
+                              <span className="text-xs font-bold text-slate-400">Murid Keseluruhan</span>
+                             </>
+                           ) : (
+                             <>
+                              <span className="text-sm font-black text-slate-800">{rateTotal}%</span>
+                              <span className="text-xs font-bold text-slate-400">{stat.total.count} Murid Keseluruhan</span>
+                             </>
+                           )}
                         </div>
                       </td>
                     </tr>
@@ -429,8 +523,18 @@ export function AttendanceAnalysisView() {
 
       {/* Student stats table */}
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-4 bg-slate-50 border-b border-slate-100">
+        <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h3 className="text-sm font-black uppercase tracking-widest text-slate-600">Laporan Individu Murid</h3>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              placeholder="Cari nama / no KP..."
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -444,8 +548,8 @@ export function AttendanceAnalysisView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {studentStats.length > 0 ? (
-                studentStats.map((s) => (
+              {filteredStudentStats.length > 0 ? (
+                filteredStudentStats.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="text-sm font-black text-slate-800">{s.name}</p>
