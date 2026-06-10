@@ -61,16 +61,22 @@ export function AttendanceAnalysisView() {
   const allDates = useMemo(() => {
     const dates = new Set<string>();
     Object.entries(attendance).forEach(([date, unitsRecord]) => {
+       const hasAttendanceForUnit = (unit: string) => {
+         const unitAtt = unitsRecord[unit];
+         if (!unitAtt) return false;
+         return Object.values(unitAtt).some(isPresent => isPresent === true);
+       };
+
        if (selectedUnit !== 'Semua') {
-         if (unitsRecord[selectedUnit]) dates.add(date);
+         if (hasAttendanceForUnit(selectedUnit)) dates.add(date);
        } else if (selectedKategori !== 'Semua') {
          // Category is selected, check if any unit in that category has a record
-         const hasRecord = availableUnits.some(u => unitsRecord[u]);
+         const hasRecord = availableUnits.some(u => hasAttendanceForUnit(u));
          if (hasRecord) dates.add(date);
        } else {
          // All categories are selected, just make sure there's at least one valid unit record
          const unitKeys = Object.keys(unitsRecord);
-         const hasValidRecord = unitKeys.some(k => k && k.trim() !== "");
+         const hasValidRecord = unitKeys.some(k => k && k.trim() !== "" && hasAttendanceForUnit(k));
          if (hasValidRecord) dates.add(date);
        }
     });

@@ -326,7 +326,9 @@ export function StudentDirectory() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Data Murid</h2>
-          <p className="text-sm font-bold text-slate-500 mt-1">Pangkalan data pendaftaran kokurikulum</p>
+          <p className="text-sm font-bold text-slate-500 mt-1">
+            Pangkalan data pendaftaran kokurikulum • <span className="text-blue-600">{filteredStudents.length}</span> rekod dipaparkan
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -475,6 +477,13 @@ export function StudentDirectory() {
             </select>
           )}
         </div>
+      </div>
+
+      <div className="flex justify-between items-center px-4">
+        <h3 className="text-lg font-black text-slate-800 tracking-tight">Senarai Murid</h3>
+        <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-sm font-bold">
+          {filteredStudents.length} rekod ditemui
+        </span>
       </div>
 
       {/* Table */}
