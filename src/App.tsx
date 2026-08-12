@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Users, ClipboardCheck, Settings, UsersRound, Calendar, PieChart, GraduationCap, BarChart3 } from 'lucide-react';
-import { AppProvider } from './AppContext';
+import { AppProvider, useAppContext } from './AppContext';
 import { DashboardOverview } from './components/DashboardOverview';
 import { StudentDirectory } from './components/StudentDirectory';
 import { AttendanceView } from './components/AttendanceView';
@@ -16,6 +16,7 @@ export default function App() {
 
 function MainLayout() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'directory' | 'attendance' | 'attendance_analysis'>('dashboard');
+  const { quotaError } = useAppContext();
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -106,6 +107,23 @@ function MainLayout() {
         </header>
 
         <div className="flex-1 overflow-y-auto w-full">
+          {quotaError && (
+            <div className="bg-red-50 border-b border-red-100 p-4 mb-4">
+              <div className="max-w-7xl mx-auto flex items-start gap-3 text-red-800">
+                <div className="bg-red-100 p-2 rounded-lg shrink-0">
+                  <Settings size={20} className="text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-red-900">Had Kuota Pangkalan Data Dicapai</h3>
+                  <p className="text-sm mt-1">
+                    Maaf, sistem telah mencapai had percuma membaca data harian dari Firestore. 
+                    Anda boleh mencuba lagi esok setelah kuota diset semula, atau hubungi pentadbir sistem untuk menaik taraf pelan pangkalan data (Blaze Plan).
+                  </p>
+                  <p className="text-xs opacity-75 mt-2 font-mono">{quotaError}</p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="max-w-7xl mx-auto p-4 md:p-8 pb-32">
             {currentView === 'dashboard' && <DashboardOverview />}
             {currentView === 'directory' && <StudentDirectory />}

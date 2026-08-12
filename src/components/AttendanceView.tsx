@@ -221,7 +221,12 @@ export function AttendanceView() {
       {/* Attendance List */}
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
         <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
-          <h3 className="text-sm font-black uppercase tracking-widest text-slate-600">Senarai Nama Ahli</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-600">Senarai Nama Ahli</h3>
+            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">
+              {currentUnitStudents.length} murid
+            </span>
+          </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-2 md:mt-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />

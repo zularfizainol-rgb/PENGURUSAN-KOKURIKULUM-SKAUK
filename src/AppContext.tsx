@@ -14,6 +14,7 @@ interface AppContextType {
   deleteStudent: (id: string) => Promise<void>;
   syncSystemDataToCloud: () => Promise<void>;
   resetDatabase: () => Promise<void>;
+  quotaError: string | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -28,6 +29,7 @@ const normalizeUnit = (u?: string) => {
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Record<string, Record<string, Record<string, boolean>>>>({});
+  const [quotaError, setQuotaError] = useState<string | null>(null);
 
   useEffect(() => {
     // Cleanup incorrect 2026-04-08 attendance for non-sukan units based on actual student data
@@ -61,6 +63,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if(error instanceof Error && error.message.includes('the client is offline')) {
           console.error("Please check your Firebase configuration.");
         }
+        if(error instanceof Error && error.message.toLowerCase().includes('quota')) {
+          setQuotaError(error.message);
+        }
       }
     }
     testConnection();
@@ -74,8 +79,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         loadedStudents.push({ ...doc.data() as Student, id: doc.id });
       });
       setStudents(loadedStudents);
+      setQuotaError(null);
     }, (error) => {
       console.error("Error fetching students: ", error);
+      if (error instanceof Error && error.message.toLowerCase().includes('quota')) {
+        setQuotaError(error.message);
+      }
       if (error instanceof Error && error.message.includes('Missing or insufficient permissions')) {
           console.error(JSON.stringify({
               error: error.message,
@@ -104,8 +113,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       setAttendance(newAttendance);
+      setQuotaError(null);
     }, (error) => {
       console.error("Error fetching attendance: ", error);
+      if (error instanceof Error && error.message.toLowerCase().includes('quota')) {
+        setQuotaError(error.message);
+      }
       if (error instanceof Error && error.message.includes('Missing or insufficient permissions')) {
           console.error(JSON.stringify({
               error: error.message,
@@ -338,7 +351,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AppContext.Provider value={{ students, attendance, markAttendance, markAllAttendance, importStudents, addStudent, updateStudent, deleteStudent, syncSystemDataToCloud, resetDatabase }}>
+    <AppContext.Provider value={{ students, attendance, markAttendance, markAllAttendance, importStudents, addStudent, updateStudent, deleteStudent, syncSystemDataToCloud, resetDatabase, quotaError }}>
       {children}
     </AppContext.Provider>
   );

@@ -18,6 +18,7 @@ export function AttendanceAnalysisView() {
   
   const [selectedKategori, setSelectedKategori] = useState<KategoriUnit | 'Semua'>('Semua');
   const [filterAliran, setFilterAliran] = useState('Semua');
+  const [filterKelas, setFilterKelas] = useState('Semua');
   const [filterDate, setFilterDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -56,6 +57,20 @@ export function AttendanceAnalysisView() {
     if(list.length === 0) return ["Tahun 4", "Tahun 5", "Tahun 6"];
     return list.sort((a,b) => a.localeCompare(b));
   }, [students]);
+
+  const kelasOptions = useMemo(() => {
+    let list = students;
+    if (filterAliran !== 'Semua') {
+      list = list.filter(s => normalizeUnit(s.aliran) === normalizeUnit(filterAliran));
+    }
+    const uniqueKelas = Array.from(new Set(list.map(s => normalizeUnit(s.kelas)))).filter(Boolean);
+    return uniqueKelas.sort((a,b) => a.localeCompare(b));
+  }, [students, filterAliran]);
+
+  const handleAliranChange = (val: string) => {
+    setFilterAliran(val);
+    setFilterKelas('Semua');
+  };
 
   // Get all unique dates from the attendance records restricted to current category/unit selection
   const allDates = useMemo(() => {
@@ -118,13 +133,16 @@ export function AttendanceAnalysisView() {
     if (filterAliran !== 'Semua') {
       list = list.filter(s => normalizeUnit(s.aliran) === normalizeUnit(filterAliran));
     }
+    if (filterKelas !== 'Semua') {
+      list = list.filter(s => normalizeUnit(s.kelas) === normalizeUnit(filterKelas));
+    }
     return list.sort((a, b) => {
       const aKelas = normalizeUnit(a.kelas);
       const bKelas = normalizeUnit(b.kelas);
       if (aKelas !== bKelas) return aKelas.localeCompare(bKelas);
       return a.name.localeCompare(b.name);
     });
-  }, [students, selectedKategori, selectedUnit, filterAliran]);
+  }, [students, selectedKategori, selectedUnit, filterAliran, filterKelas]);
 
   // Calculate statistics for the selected criteria
   const studentStats = useMemo(() => {
@@ -208,8 +226,9 @@ export function AttendanceAnalysisView() {
     doc.text(`Kategori: ${selectedKategori === 'Semua' ? 'Semua Kategori' : selectedKategori.replace(/\b\w/g, l => l.toUpperCase())}`, 14, 35);
     doc.text(`Unit: ${selectedUnit}`, 14, 40);
     doc.text(`Aliran: ${filterAliran}`, 14, 45);
+    doc.text(`Kelas: ${filterKelas}`, 14, 50);
 
-    let currentY = 55;
+    let currentY = 60;
 
     // Table 1: Analisis Mengikut Aliran & Jantina
     if (aliranGenderStats.length > 0) {
@@ -360,7 +379,7 @@ export function AttendanceAnalysisView() {
         </div>
 
         <div className="space-y-4">
-          <p className="text-xs font-black uppercase text-slate-400 tracking-widest">Unit, Aliran & Tarikh</p>
+          <p className="text-xs font-black uppercase text-slate-400 tracking-widest">Unit, Aliran, Kelas & Tarikh</p>
           <div className="flex flex-wrap gap-2">
             <select
               className="px-4 py-2 bg-blue-50 text-blue-700 border-none rounded-xl font-bold text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
@@ -375,11 +394,21 @@ export function AttendanceAnalysisView() {
             <select
               className="px-4 py-2 bg-slate-50 border-none rounded-xl font-bold text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
               value={filterAliran}
-              onChange={(e) => setFilterAliran(e.target.value)}
+              onChange={(e) => handleAliranChange(e.target.value)}
             >
               <option value="Semua">Semua Aliran</option>
               {aliranOptions.map(a => (
                 <option key={a} value={a}>{a.toUpperCase()}</option>
+              ))}
+            </select>
+            <select
+              className="px-4 py-2 bg-slate-50 border-none rounded-xl font-bold text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+              value={filterKelas}
+              onChange={(e) => setFilterKelas(e.target.value)}
+            >
+              <option value="Semua">Semua Kelas</option>
+              {kelasOptions.map(k => (
+                <option key={k} value={k}>{k.toUpperCase()}</option>
               ))}
             </select>
             <div className="flex items-center gap-2 bg-slate-800 text-white px-3 py-1 rounded-xl drop-shadow-sm border border-slate-700">
@@ -530,7 +559,12 @@ export function AttendanceAnalysisView() {
       {/* Student stats table */}
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
         <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h3 className="text-sm font-black uppercase tracking-widest text-slate-600">Laporan Individu Murid</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-600">Laporan Individu Murid</h3>
+            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">
+              {filteredStudentStats.length} murid
+            </span>
+          </div>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input
